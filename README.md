@@ -1,6 +1,6 @@
-# Weekly Report Generator
+# 信用债券处周报生成器
 
-独立的周报生成任务入口，计划挂在 Gateway：
+独立的信用债券处周报生成任务入口，计划挂在 Gateway：
 
 ```text
 https://tempest07.com/weekly-report/
@@ -8,7 +8,7 @@ https://tempest07.com/weekly-report/
 
 ## 架构
 
-- 手机网页：上传 4 个输入文件并填写 4 个 DV01。
+- 手机网页：上传余额台账、委外周报 PPT、CB 增持台账、CB 减持台账，并填写 4 个表内 DV01。
 - Pages Function：创建任务、查询状态、下载结果。
 - D1：保存任务状态和元数据。
 - R2：保存输入文件、结果文件、中间件压缩包和日志。
