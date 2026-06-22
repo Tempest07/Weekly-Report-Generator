@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8fb">
+  <title>周报生成器 - Tempest07</title>
+  <meta name="description" content="信用债周报任务上传、后台生成和结果下载">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="https://tempest07.com/gateway/">
+        <span class="brand-mark">T7</span>
+        <span><strong>Weekly Report</strong><small>Tempest07</small></span>
+      </a>
+      <div class="top-actions">
+        <input id="passwordInput" class="token-input" type="password" autocomplete="current-password" placeholder="APP_PASSWORD">
+        <button id="savePasswordButton" class="button secondary" type="button">连接</button>
+      </div>
+    </header>
+
+    <section class="status-strip" id="connectionStatus">
+      <span class="dot idle"></span>
+      <strong>未连接</strong>
+      <span>等待云端口令</span>
+    </section>
+
+    <section class="workspace">
+      <form id="jobForm" class="panel upload-panel">
+        <div class="panel-head">
+          <div>
+            <span class="step">NEW</span>
+            <h1>新建周报任务</h1>
+          </div>
+          <button id="submitButton" class="button primary" type="submit">提交生成</button>
+        </div>
+
+        <div class="file-grid">
+          <label class="file-tile">
+            <span>余额台账</span>
+            <input id="balanceFile" name="balanceFile" type="file" accept=".xlsx,.xlsm,.xls" required>
+            <strong data-file-label="balanceFile">选择文件</strong>
+          </label>
+          <label class="file-tile">
+            <span>委外周报 PPT</span>
+            <input id="pptFile" name="pptFile" type="file" accept=".pptx,.ppt" required>
+            <strong data-file-label="pptFile">选择文件</strong>
+          </label>
+          <label class="file-tile">
+            <span>CB 增持台账</span>
+            <input id="cbAddFile" name="cbAddFile" type="file" accept=".xlsx,.xlsm,.xls" required>
+            <strong data-file-label="cbAddFile">选择文件</strong>
+          </label>
+          <label class="file-tile">
+            <span>CB 减持台账</span>
+            <input id="cbReduceFile" name="cbReduceFile" type="file" accept=".xlsx,.xlsm,.xls" required>
+            <strong data-file-label="cbReduceFile">选择文件</strong>
+          </label>
+        </div>
+
+        <div class="dv-grid">
+          <label>FVOCI信用债 DV01<input name="fvociCreditDv01" inputmode="decimal" required></label>
+          <label>FVOCI ABS DV01<input name="fvociAbsDv01" inputmode="decimal" required></label>
+          <label>AC信用债 DV01<input name="acCreditDv01" inputmode="decimal" required></label>
+          <label>AC ABS DV01<input name="acAbsDv01" inputmode="decimal" required></label>
+        </div>
+      </form>
+
+      <section class="panel jobs-panel">
+        <div class="panel-head compact">
+          <div>
+            <span class="step">QUEUE</span>
+            <h2>任务队列</h2>
+          </div>
+          <button id="refreshButton" class="button secondary" type="button">刷新</button>
+        </div>
+        <div id="jobsList" class="jobs-list">
+          <div class="empty">暂无任务</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <template id="jobTemplate">
+    <article class="job-card">
+      <div class="job-main">
+        <div class="job-title">
+          <span class="status-pill"></span>
+          <strong></strong>
+        </div>
+        <p></p>
+        <div class="progress-line"><span></span></div>
+      </div>
+      <div class="job-actions"></div>
+    </article>
+  </template>
+
+  <script src="./app.js" type="module"></script>
+</body>
+</html>

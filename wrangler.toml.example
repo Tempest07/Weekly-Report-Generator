@@ -1,0 +1,12 @@
+name = "weekly-report-generator"
+pages_build_output_dir = "."
+compatibility_date = "2026-06-22"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "weekly-report-generator"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "REPORT_BUCKET"
+bucket_name = "weekly-report-generator"
