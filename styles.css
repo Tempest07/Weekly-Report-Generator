@@ -103,6 +103,36 @@ a { color: inherit; text-decoration: none; }
 .dot.ok { background: var(--green); }
 .dot.bad { background: var(--red); }
 
+.runner-card {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(29, 43, 58, .05);
+}
+.runner-card h2 { font-size: 18px; }
+.runner-state {
+  min-width: min(100%, 470px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.runner-state strong { color: var(--ink); white-space: nowrap; }
+.runner-state span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .workspace { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(340px, .95fr); gap: 16px; align-items: start; }
 .panel {
   border: 1px solid var(--line);
@@ -194,6 +224,7 @@ h2 { font-size: 18px; }
 .job-title { display: flex; align-items: center; gap: 8px; }
 .job-title strong { font-size: 13px; }
 .job-card p { margin: 7px 0 10px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.job-meta { margin: -4px 0 10px; color: var(--muted); font-size: 11px; font-weight: 800; }
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -224,6 +255,13 @@ h2 { font-size: 18px; }
   font-size: 12px;
   font-weight: 800;
 }
+button.download-link { cursor: pointer; }
+button.download-link:disabled { opacity: .55; cursor: not-allowed; }
+.danger-action {
+  border-color: #ffd4d4;
+  background: #fff1f1;
+  color: var(--red);
+}
 
 @media (max-width: 880px) {
   .workspace { grid-template-columns: 1fr; }
@@ -232,6 +270,8 @@ h2 { font-size: 18px; }
 @media (max-width: 620px) {
   .shell { width: min(100% - 22px, 1180px); padding-top: 10px; }
   .topbar { align-items: stretch; flex-direction: column; }
+  .runner-card { align-items: stretch; flex-direction: column; }
+  .runner-state { min-width: 0; justify-content: flex-start; }
   .top-actions { width: 100%; }
   .token-input { width: 100%; }
   .panel-head { align-items: stretch; flex-direction: column; }

@@ -50,16 +50,40 @@ async function route(context) {
     return getJobResponse(context.env.DB, parts[1]);
   }
 
+  if (parts[0] === "jobs" && parts[1] && parts[2] === "cancel" && parts.length === 3 && method === "POST") {
+    const denied = authorizeUser(context);
+    if (denied) return denied;
+    return cancelJob(context.env.DB, parts[1]);
+  }
+
   if (parts[0] === "jobs" && parts[1] && parts[2] === "files" && parts[3] && method === "GET") {
     const denied = authorizeDownload(context, url);
     if (denied) return denied;
     return downloadJobFile(context.env, parts[1], parts[3]);
   }
 
+  if (parts[0] === "runner" && parts[1] === "status" && parts.length === 2 && method === "GET") {
+    const denied = authorizeUser(context);
+    if (denied) return denied;
+    return getRunnerStatus(context.env.DB);
+  }
+
+  if (parts[0] === "runner" && parts[1] === "status" && parts.length === 2 && method === "PATCH") {
+    const denied = authorizeRunner(context);
+    if (denied) return denied;
+    return updateRunnerStatus(context);
+  }
+
   if (parts[0] === "runner" && parts[1] === "next" && method === "GET") {
     const denied = authorizeRunner(context);
     if (denied) return denied;
     return claimNextJob(context);
+  }
+
+  if (parts[0] === "runner" && parts[1] === "jobs" && parts[2] && parts.length === 3 && method === "GET") {
+    const denied = authorizeRunner(context);
+    if (denied) return denied;
+    return getJobResponse(context.env.DB, parts[2]);
   }
 
   if (parts[0] === "runner" && parts[1] === "jobs" && parts[2] && parts.length === 3 && method === "PATCH") {
@@ -153,7 +177,7 @@ async function getJobResponse(db, id) {
 async function claimNextJob({ env }) {
   const row = await env.DB.prepare(`
     SELECT * FROM weekly_report_jobs
-    WHERE status = 'pending'
+    WHERE status = 'pending' AND COALESCE(cancel_requested, 0) = 0
     ORDER BY created_at ASC
     LIMIT 1
   `).first();
@@ -209,7 +233,8 @@ async function updateRunnerJob({ request, env }, id) {
         completed_at = ?3,
         progress = ?4,
         message = ?5,
-        error = ?6
+        error = ?6,
+        cancel_requested = CASE WHEN ?1 IN ('completed', 'failed', 'canceled') THEN 0 ELSE cancel_requested END
     WHERE id = ?7
   `).bind(
     nextStatus,
@@ -272,7 +297,8 @@ async function uploadRunnerResults({ request, env }, id) {
         progress = ?3,
         message = ?4,
         error = ?5,
-        results_json = ?6
+        results_json = ?6,
+        cancel_requested = 0
     WHERE id = ?7
   `).bind(
     status,
@@ -285,6 +311,87 @@ async function uploadRunnerResults({ request, env }, id) {
   ).run();
 
   return json({ status: "ok", job: await loadJob(env.DB, id) });
+}
+
+async function cancelJob(db, id) {
+  const current = await loadJob(db, id);
+  if (!current) return json({ error: "任务不存在" }, 404);
+  if (["completed", "failed", "canceled"].includes(current.status)) {
+    return json({ status: "ok", job: current });
+  }
+
+  const now = new Date().toISOString();
+  if (current.status === "pending") {
+    await db.prepare(`
+      UPDATE weekly_report_jobs
+      SET status = 'canceled',
+          updated_at = ?1,
+          completed_at = ?1,
+          cancel_requested = 0,
+          message = '已取消，未进入本地生成流程'
+      WHERE id = ?2
+    `).bind(now, id).run();
+  } else {
+    await db.prepare(`
+      UPDATE weekly_report_jobs
+      SET updated_at = ?1,
+          cancel_requested = 1,
+          message = '已请求停止，等待 Windows 接单员终止本地流程'
+      WHERE id = ?2 AND status = 'running'
+    `).bind(now, id).run();
+  }
+  return json({ status: "ok", job: await loadJob(db, id) });
+}
+
+async function getRunnerStatus(db) {
+  const row = await db.prepare("SELECT * FROM weekly_report_runner_status WHERE id = 'default'").first();
+  if (!row) {
+    return json({
+      runner: {
+        status: "offline",
+        message: "Windows 接单员尚未上报状态",
+        updatedAt: null,
+        currentJobId: "",
+        ageSeconds: null,
+        online: false,
+      },
+    });
+  }
+
+  const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(row.updated_at)) / 1000));
+  return json({
+    runner: {
+      status: row.status || "unknown",
+      message: row.message || "",
+      updatedAt: row.updated_at,
+      currentJobId: row.current_job_id || "",
+      metadata: parseJson(row.metadata_json, {}),
+      ageSeconds,
+      online: ageSeconds <= 90 && row.status !== "stopped",
+    },
+  });
+}
+
+async function updateRunnerStatus({ request, env }) {
+  const body = await request.json();
+  const now = new Date().toISOString();
+  const status = String(body.status || "online").slice(0, 80);
+  const message = String(body.message || "").slice(0, 1000);
+  const currentJobId = String(body.currentJobId || "").slice(0, 120);
+  const metadata = JSON.stringify(body.metadata || {});
+
+  await env.DB.prepare(`
+    INSERT INTO weekly_report_runner_status (id, updated_at, status, message, current_job_id, metadata_json)
+    VALUES ('default', ?1, ?2, ?3, ?4, ?5)
+    ON CONFLICT(id) DO UPDATE SET
+      updated_at = excluded.updated_at,
+      status = excluded.status,
+      message = excluded.message,
+      current_job_id = excluded.current_job_id,
+      metadata_json = excluded.metadata_json
+  `).bind(now, status, message, currentJobId, metadata).run();
+
+  return json({ status: "ok" });
 }
 
 async function downloadJobFile(env, id, fileId) {
@@ -321,6 +428,7 @@ function normalizeJobRow(row) {
     progress: Number(row.progress || 0),
     message: row.message || "",
     error: row.error || "",
+    cancelRequested: Number(row.cancel_requested || 0) === 1,
     inputs: parseJson(row.inputs_json, []),
     dv01: parseJson(row.dv01_json, {}),
     results: parseJson(row.results_json, []),
@@ -344,10 +452,30 @@ async function ensureSchema(db) {
       inputs_json TEXT NOT NULL,
       dv01_json TEXT NOT NULL,
       results_json TEXT NOT NULL DEFAULT '[]',
-      metadata_json TEXT
+      metadata_json TEXT,
+      cancel_requested INTEGER NOT NULL DEFAULT 0
     )
   `).run();
   await db.prepare("CREATE INDEX IF NOT EXISTS idx_weekly_report_jobs_status_created ON weekly_report_jobs(status, created_at)").run();
+  await ensureColumn(db, "weekly_report_jobs", "cancel_requested", "INTEGER NOT NULL DEFAULT 0");
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS weekly_report_runner_status (
+      id TEXT PRIMARY KEY,
+      updated_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      message TEXT,
+      current_job_id TEXT,
+      metadata_json TEXT
+    )
+  `).run();
+}
+
+async function ensureColumn(db, tableName, columnName, columnDefinition) {
+  const info = await db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const exists = (info.results || []).some((column) => column.name === columnName);
+  if (!exists) {
+    await db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`).run();
+  }
 }
 
 function authorizeUser(context) {
