@@ -1,6 +1,6 @@
-# 信用债券处周报生成器
+﻿# 信用债周报生成器
 
-独立的信用债券处周报生成任务入口，计划挂在 Gateway：
+独立的信用债周报生成任务入口，计划挂在 Gateway：
 
 ```text
 https://tempest07.com/weekly-report/
